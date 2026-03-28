@@ -3,7 +3,8 @@ Robotics Lab Inventory & Usage Management System
 Flask Application Entry Point
 """
 
-from flask import Flask
+import os
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 
 from config import Config
@@ -14,7 +15,7 @@ from routes.dashboard import dashboard_bp
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder="../frontend", static_url_path="")
     app.config.from_object(Config)
 
     # Allow cookies to be sent cross-origin (frontend ↔ backend on same machine)
@@ -27,6 +28,15 @@ def create_app():
     app.register_blueprint(items_bp,     url_prefix="/api")
     app.register_blueprint(usage_bp,     url_prefix="/api")
     app.register_blueprint(dashboard_bp, url_prefix="/api")
+
+    # Serve frontend files
+    @app.route("/")
+    def serve_index():
+        return send_from_directory(app.static_folder, "login.html")
+
+    @app.route("/<path:filename>")
+    def serve_files(filename):
+        return send_from_directory(app.static_folder, filename)
 
     @app.after_request
     def add_headers(response):

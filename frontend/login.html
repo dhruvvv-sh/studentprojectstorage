@@ -40,7 +40,7 @@
     // Redirect if already logged in
     (async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/auth/me", { credentials: "include" });
+        const res = await fetch("/api/auth/me", { credentials: "include" });
         if (res.ok) window.location.href = "dashboard.html";
       } catch (_) {}
     })();
@@ -65,7 +65,7 @@
       btn.disabled = true;
 
       try {
-        const res  = await fetch("http://localhost:5000/api/auth/login", {
+        const res  = await fetch("/api/auth/login", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
