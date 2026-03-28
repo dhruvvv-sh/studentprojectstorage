@@ -42,14 +42,7 @@ pip install flask flask-cors mysql-connector-python werkzeug
 ```
 
 #### Configure Database Connection
-Edit `backend/config.py` and update MySQL credentials:
-```python
-MYSQL_HOST      = "localhost"
-MYSQL_PORT      = 3306
-MYSQL_USER      = "root"
-MYSQL_PASSWORD  = "your_password"  # Update this!
-MYSQL_DB        = "robotics_inventory"
-```
+Set MySQL credentials as environment variables (`MYSQLHOST`/`MYSQL_HOST`, `MYSQLPORT`/`MYSQL_PORT`, `MYSQLUSER`/`MYSQL_USER`, `MYSQLPASSWORD`/`MYSQL_ROOT_PASSWORD`, `MYSQLDATABASE`/`MYSQL_DATABASE`) before running the app.
 
 #### Initialize Database
 ```bash
@@ -208,7 +201,7 @@ Guest:        guest / guest123
 ### Issue: API calls return 401 Unauthorized
 **Solution**: 
 1. Verify MySQL database is running
-2. Check `MYSQL_PASSWORD` in `config.py`
+2. Check your MySQL environment variables (`MYSQLPASSWORD`/`MYSQL_ROOT_PASSWORD`, host, port, user, and database)
 3. Ensure session cookie is being sent with `credentials: "include"`
 
 ### Issue: CORS errors in browser console

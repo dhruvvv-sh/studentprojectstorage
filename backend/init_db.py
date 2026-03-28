@@ -10,16 +10,17 @@ Usage:
 """
 
 import sys
+import os
 import mysql.connector
 from werkzeug.security import generate_password_hash
 from datetime import date, timedelta
 
 # ── Connection settings (mirrors config.py) ──────────────────────────────────
-DB_HOST     = "localhost"
-DB_PORT     = 3306
-DB_USER     = "root"
-DB_PASSWORD = "$dhruv2005$"   # <-- change this
-DB_NAME     = "robotics_inventory"
+DB_HOST     = os.getenv("MYSQLHOST", os.getenv("MYSQL_HOST", "localhost"))
+DB_PORT     = int(os.getenv("MYSQLPORT", os.getenv("MYSQL_PORT", "3306")))
+DB_USER     = os.getenv("MYSQLUSER", os.getenv("MYSQL_USER", "root"))
+DB_PASSWORD = os.getenv("MYSQLPASSWORD", os.getenv("MYSQL_ROOT_PASSWORD", os.getenv("MYSQL_PASSWORD", "")))
+DB_NAME     = os.getenv("MYSQLDATABASE", os.getenv("MYSQL_DATABASE", "robotics_inventory"))
 
 
 def run(cursor, sql, params=None):
