@@ -3,37 +3,311 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventory</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Inventory — Robotics Lab</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <script src="js/api.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script>buildSidebar("inventory");</script>
 
-<script src="js/api.js"></script>
+  <div class="app-wrapper">
+    <div style="width:230px;flex-shrink:0"></div>
+    <div class="main-content">
 
-<div class="app-wrapper">
-  <div class="main-content">
+      <header class="page-header">
+        <div>
+          <div class="page-title">Inventory</div>
+          <div class="page-subtitle">Manage items &amp; categories</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm admin-only" onclick="openModal('cat-modal')">+ Category</button>
+          <button class="btn btn-primary btn-sm admin-only write-only" onclick="openAddItem()">+ Add Item</button>
+        </div>
+      </header>
 
-    <header class="page-header">
-      <h2>Inventory</h2>
-    </header>
+      <div class="page-body">
 
-    <div class="page-body">
+        <!-- Search & filter bar -->
+        <div class="table-wrap" style="margin-bottom:20px">
+          <div class="table-toolbar">
+            <span class="table-toolbar-title">All Items</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input id="search-input" class="form-control" style="width:200px;padding:7px 12px;font-size:12px"
+                     placeholder="🔍 Search items…" oninput="filterItems()">
+              <select id="cat-filter" class="filter-select" onchange="filterItems()">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Item Name</th>
+                <th>Category</th>
+                <th>Availability</th>
+                <th>Location</th>
+                <th class="admin-only">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="items-tbody"></tbody>
+          </table>
+        </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Item</th>
-            <th>Category</th>
-          </tr>
-        </thead>
-        <tbody id="items-tbody"></tbody>
-      </table>
+        <!-- Categories section (admin) -->
+        <div class="admin-only">
+          <div class="table-wrap">
+            <div class="table-toolbar">
+              <span class="table-toolbar-title">Categories</span>
+            </div>
+            <table>
+              <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
+              <tbody id="cats-tbody"></tbody>
+            </table>
+          </div>
+        </div>
 
+      </div><!-- /page-body -->
+    </div><!-- /main-content -->
+  </div><!-- /app-wrapper -->
+
+  <!-- ── Add/Edit Item Modal ───────────────────────────────────── -->
+  <div class="modal-overlay" id="item-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="item-modal-title">Add Item</span>
+        <button class="modal-close" onclick="closeModal('item-modal')">×</button>
+      </div>
+      <input type="hidden" id="item-id">
+      <div class="form-group">
+        <label>Item Name *</label>
+        <input class="form-control" id="item-name" placeholder="e.g. Arduino Uno R3">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category *</label>
+          <select class="form-control" id="item-category"></select>
+        </div>
+        <div class="form-group">
+          <label>Storage Location</label>
+          <input class="form-control" id="item-location" placeholder="e.g. Shelf A1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total Quantity *</label>
+          <input class="form-control" type="number" id="item-total" min="0" value="1">
+        </div>
+        <div class="form-group" id="avail-group" style="display:none">
+          <label>Available Quantity</label>
+          <input class="form-control" type="number" id="item-avail" min="0">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('item-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveItem()">Save Item</button>
+      </div>
     </div>
-
   </div>
-</div>
 
+  <!-- ── Category Modal ────────────────────────────────────────── -->
+  <div class="modal-overlay" id="cat-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="cat-modal-title">Add Category</span>
+        <button class="modal-close" onclick="closeModal('cat-modal')">×</button>
+      </div>
+      <input type="hidden" id="cat-id">
+      <div class="form-group">
+        <label>Category Name *</label>
+        <input class="form-control" id="cat-name" placeholder="e.g. Electronics">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input class="form-control" id="cat-desc" placeholder="Short description">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('cat-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCat()">Save Category</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allItems = [], allCats = [], currentUser = null;
+
+    (async () => {
+      currentUser = await requireAuth();
+      if (!currentUser) return;
+      await loadCats();
+      await loadItems();
+    })();
+
+    /* ── Categories ─────────────────────────────────────────── */
+    async function loadCats() {
+      allCats = await api.get("/categories");
+      // Fill filter dropdown
+      const filter = document.getElementById("cat-filter");
+      filter.innerHTML = '<option value="">All Categories</option>' +
+        allCats.map(c => `<option value="${c.CategoryID}">${c.CategoryName}</option>`).join("");
+      // Fill item modal select
+      populateSelect("item-category", allCats, "CategoryID", "CategoryName");
+      renderCats();
+    }
+
+    function renderCats() {
+      const tb = document.getElementById("cats-tbody");
+      if (!tb) return;
+      if (!allCats.length) { tb.innerHTML = noDataRow(4, "No categories yet"); return; }
+      tb.innerHTML = allCats.map(c => `
+        <tr>
+          <td class="td-mono">${c.CategoryID}</td>
+          <td class="td-name">${c.CategoryName}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${c.Description || "—"}</td>
+          <td class="td-actions admin-only">
+            <button class="btn btn-ghost btn-sm" onclick="editCat(${c.CategoryID})">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCat(${c.CategoryID})">Delete</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function openCatModal() {
+      document.getElementById("cat-id").value   = "";
+      document.getElementById("cat-name").value = "";
+      document.getElementById("cat-desc").value = "";
+      document.getElementById("cat-modal-title").textContent = "Add Category";
+      openModal("cat-modal");
+    }
+
+    function editCat(id) {
+      const c = allCats.find(x => x.CategoryID === id);
+      if (!c) return;
+      document.getElementById("cat-id").value   = c.CategoryID;
+      document.getElementById("cat-name").value = c.CategoryName;
+      document.getElementById("cat-desc").value = c.Description || "";
+      document.getElementById("cat-modal-title").textContent = "Edit Category";
+      openModal("cat-modal");
+    }
+
+    async function saveCat() {
+      const id   = document.getElementById("cat-id").value;
+      const name = document.getElementById("cat-name").value.trim();
+      if (!name) { toast("Category name is required", "error"); return; }
+      try {
+        if (id) await api.put(`/categories/${id}`, { name, description: document.getElementById("cat-desc").value });
+        else     await api.post("/categories", { name, description: document.getElementById("cat-desc").value });
+        toast("Category saved!", "success");
+        closeModal("cat-modal");
+        await loadCats();
+      } catch (e) { toast(e.message, "error"); }
+    }
+
+    async function deleteCat(id) {
+      if (!confirm("Delete this category? Items in it cannot be deleted.")) return;
+      try {
+        await api.delete(`/categories/${id}`);
+        toast("Category deleted", "success");
+        await loadCats();
+      } catch (e) { toast(e.message, "error"); }
+    }
+
+    /* ── Items ──────────────────────────────────────────────── */
+    async function loadItems() {
+      allItems = await api.get("/items");
+      renderItems(allItems);
+    }
+
+    function filterItems() {
+      const q   = document.getElementById("search-input").value.toLowerCase();
+      const cat = document.getElementById("cat-filter").value;
+      const filtered = allItems.filter(i =>
+        (!q   || i.ItemName.toLowerCase().includes(q) || (i.StorageLocation||"").toLowerCase().includes(q)) &&
+        (!cat || String(i.CategoryID) === cat)
+      );
+      renderItems(filtered);
+    }
+
+    const isAdmin = () => ["admin","lab_incharge"].includes(currentUser?.role);
+
+    function renderItems(items) {
+      const tb = document.getElementById("items-tbody");
+      if (!items.length) { tb.innerHTML = noDataRow(6, "No items found"); return; }
+      tb.innerHTML = items.map(i => `
+        <tr>
+          <td class="td-mono">${i.ItemID}</td>
+          <td class="td-name">${i.ItemName}</td>
+          <td><span class="badge badge-inuse" style="font-size:9px">${i.CategoryName}</span></td>
+          <td>${qtyBar(i.AvailableQuantity, i.TotalQuantity)}</td>
+          <td style="font-size:11px;color:var(--text-muted)">${i.StorageLocation || "—"}</td>
+          <td class="td-actions admin-only">
+            <button class="btn btn-ghost btn-sm" onclick="editItem(${i.ItemID})">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem(${i.ItemID})">Delete</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function openAddItem() {
+      document.getElementById("item-id").value       = "";
+      document.getElementById("item-name").value     = "";
+      document.getElementById("item-location").value = "";
+      document.getElementById("item-total").value    = "1";
+      document.getElementById("avail-group").style.display = "none";
+      document.getElementById("item-modal-title").textContent = "Add Item";
+      populateSelect("item-category", allCats, "CategoryID", "CategoryName");
+      openModal("item-modal");
+    }
+
+    function editItem(id) {
+      const i = allItems.find(x => x.ItemID === id);
+      if (!i) return;
+      document.getElementById("item-id").value       = i.ItemID;
+      document.getElementById("item-name").value     = i.ItemName;
+      document.getElementById("item-location").value = i.StorageLocation || "";
+      document.getElementById("item-total").value    = i.TotalQuantity;
+      document.getElementById("item-avail").value    = i.AvailableQuantity;
+      document.getElementById("avail-group").style.display = "";
+      document.getElementById("item-modal-title").textContent = "Edit Item";
+      populateSelect("item-category", allCats, "CategoryID", "CategoryName");
+      document.getElementById("item-category").value = i.CategoryID;
+      openModal("item-modal");
+    }
+
+    async function saveItem() {
+      const id    = document.getElementById("item-id").value;
+      const name  = document.getElementById("item-name").value.trim();
+      const catId = document.getElementById("item-category").value;
+      const total = parseInt(document.getElementById("item-total").value) || 0;
+      const avail = id ? (parseInt(document.getElementById("item-avail").value) || 0) : total;
+
+      if (!name || !catId) { toast("Name and category are required", "error"); return; }
+      try {
+        if (id) {
+          await api.put(`/items/${id}`, {
+            name, category_id: catId, total_quantity: total,
+            available_quantity: avail,
+            storage_location: document.getElementById("item-location").value,
+          });
+        } else {
+          await api.post("/items", {
+            name, category_id: catId, quantity: total,
+            storage_location: document.getElementById("item-location").value,
+          });
+        }
+        toast("Item saved!", "success");
+        closeModal("item-modal");
+        await loadItems();
+      } catch (e) { toast(e.message, "error"); }
+    }
+
+    async function deleteItem(id) {
+      if (!confirm("Delete this item? This cannot be undone.")) return;
+      try {
+        await api.delete(`/items/${id}`);
+        toast("Item deleted", "success");
+        await loadItems();
+      } catch (e) { toast(e.message, "error"); }
+    }
+  </script>
 </body>
 </html>

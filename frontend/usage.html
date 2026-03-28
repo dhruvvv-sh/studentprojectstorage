@@ -3,28 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Usage</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Issue / Return — Robotics Lab</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <script src="js/api.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script>buildSidebar("usage");</script>
 
-<script src="js/api.js"></script>
+  <div class="app-wrapper">
+    <div style="width:230px;flex-shrink:0"></div>
+    <div class="main-content">
 
-<div class="app-wrapper">
-  <div class="main-content">
+      <header class="page-header">
+        <div>
+          <div class="page-title">Issue / Return</div>
+          <div class="page-subtitle">Allocate and retrieve lab components</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary btn-sm write-only" onclick="openModal('issue-modal')">+ Issue Item</button>
+        </div>
+      </header>
 
-    <header class="page-header">
-      <h2>Issue / Return</h2>
-    </header>
+      <div class="page-body">
 
-    <div class="page-body">
+        <!-- ── Active Issues Table ─────────────────────── -->
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <span class="table-toolbar-title">Currently Active Issues</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadActive()">↻ Refresh</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Project / Team</th>
+                <th>Issued On</th>
+                <th>Days Out</th>
+                <th class="write-only">Action</th>
+              </tr>
+            </thead>
+            <tbody id="active-tbody"></tbody>
+          </table>
+        </div>
 
-      <button onclick="issueItem()">Issue Item</button>
-
+      </div><!-- /page-body -->
     </div>
-
   </div>
-</div>
 
+  <!-- ── Issue Item Modal ──────────────────────────────────────── -->
+  <div class="modal-overlay" id="issue-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Issue Item</span>
+        <button class="modal-close" onclick="closeModal('issue-modal')">×</button>
+      </div>
+
+      <div class="form-group">
+        <label>Item *</label>
+        <select class="form-control" id="issue-item"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quantity *</label>
+          <input class="form-control" type="number" id="issue-qty" value="1" min="1">
+        </div>
+        <div class="form-group">
+          <label>Status *</label>
+          <select class="form-control" id="issue-status">
+            <option value="In Use">In Use (internal project)</option>
+            <option value="Borrowed">Borrowed (external team)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Project (internal)</label>
+        <select class="form-control" id="issue-project"></select>
+      </div>
+      <div class="form-group">
+        <label>External Team (for borrowed)</label>
+        <select class="form-control" id="issue-team"></select>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('issue-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="issueItem()">Confirm Issue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      await requireAuth();
+      await loadActive();
+      await loadFormData();
+    })();
+
+    async function loadFormData() {
+      const [items, projects, teams] = await Promise.all([
+        api.get("/items"),
+        api.get("/projects"),
+        api.get("/teams"),
+      ]);
+      // Only show items with available stock
+      const available = items.filter(i => i.AvailableQuantity > 0);
+      populateSelect("issue-item", available, "ItemID",
+        i => `${i.ItemName} — ${i.AvailableQuantity} avail.`, "— Select Item —");
+      // Custom label fn workaround
+      const sel = document.getElementById("issue-item");
+      sel.innerHTML = '<option value="">— Select Item —</option>' +
+        available.map(i =>
+          `<option value="${i.ItemID}">${i.ItemName} (${i.AvailableQuantity} available)</option>`
+        ).join("");
+
+      populateSelect("issue-project", projects, "ProjectID", "ProjectName", "— None / Select Project —");
+      populateSelect("issue-team",    teams,    "TeamID",    "TeamName",    "— None / Select Team —");
+    }
+
+    async function loadActive() {
+      try {
+        const rows = await api.get("/usage/active");
+        const tb   = document.getElementById("active-tbody");
+        if (!rows.length) { tb.innerHTML = noDataRow(8, "No active issues at the moment"); return; }
+        tb.innerHTML = rows.map(r => {
+          const overdue = (r.days_out || 0) > 7;
+          return `<tr class="${overdue ? 'row-overdue' : ''}">
+            <td class="td-mono">#${r.UsageID}</td>
+            <td class="td-name">${r.ItemName}</td>
+            <td class="td-mono">${r.Quantity}</td>
+            <td>${statusBadge(r.StatusName)}</td>
+            <td style="font-size:11px;color:var(--text-muted)">${r.ProjectName || r.TeamName || "—"}</td>
+            <td class="td-mono">${fmtDate(r.IssueDate)}</td>
+            <td>
+              ${daysOut(r.IssueDate)}
+              ${overdue ? '<span class="badge badge-overdue" style="margin-left:4px">OVERDUE</span>' : ''}
+            </td>
+            <td class="write-only">
+              <button class="btn btn-success btn-sm" onclick="returnItem(${r.UsageID})">↩ Return</button>
+            </td>
+          </tr>`;
+        }).join("");
+      } catch (e) { toast(e.message, "error"); }
+    }
+
+    async function issueItem() {
+      const itemId  = document.getElementById("issue-item").value;
+      const qty     = parseInt(document.getElementById("issue-qty").value) || 0;
+      const status  = document.getElementById("issue-status").value;
+      const projId  = document.getElementById("issue-project").value || null;
+      const teamId  = document.getElementById("issue-team").value   || null;
+
+      if (!itemId)   { toast("Please select an item", "error"); return; }
+      if (qty < 1)   { toast("Quantity must be at least 1", "error"); return; }
+
+      try {
+        await api.post("/usage/issue", {
+          item_id: parseInt(itemId), quantity: qty,
+          status, project_id: projId ? parseInt(projId) : null,
+          team_id: teamId ? parseInt(teamId) : null,
+        });
+        toast("Item issued successfully!", "success");
+        closeModal("issue-modal");
+        await loadActive();
+        await loadFormData();
+      } catch (e) { toast(e.message, "error"); }
+    }
+
+    async function returnItem(usageId) {
+      if (!confirm("Mark this item as returned?")) return;
+      try {
+        await api.put(`/usage/return/${usageId}`);
+        toast("Item returned successfully!", "success");
+        await loadActive();
+        await loadFormData();
+      } catch (e) { toast(e.message, "error"); }
+    }
+  </script>
 </body>
 </html>
