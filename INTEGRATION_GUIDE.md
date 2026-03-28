@@ -42,14 +42,19 @@ pip install flask flask-cors mysql-connector-python werkzeug
 ```
 
 #### Configure Database Connection
-Edit `backend/config.py` and update MySQL credentials:
-```python
-MYSQL_HOST      = "localhost"
-MYSQL_PORT      = 3306
-MYSQL_USER      = "root"
-MYSQL_PASSWORD  = "your_password"  # Update this!
-MYSQL_DB        = "robotics_inventory"
-```
+Set MySQL credentials as environment variables before running the app:
+- Host: set **either** `MYSQLHOST` **or** `MYSQL_HOST` (default: `localhost`)
+- Port: set **either** `MYSQLPORT` **or** `MYSQL_PORT` (default: `3306`)
+- User: set **either** `MYSQLUSER` **or** `MYSQL_USER` (default: `root`)
+- Password (**required**, precedence order): `MYSQLPASSWORD` → `MYSQL_ROOT_PASSWORD` → `MYSQL_PASSWORD`
+- Database: set **either** `MYSQLDATABASE` **or** `MYSQL_DATABASE` (default: `robotics_inventory`)
+
+Set Flask secret key as well (**required**): `FLASK_SECRET_KEY` (or `SECRET_KEY`).
+
+Note on password precedence: `MYSQLPASSWORD` is prioritized because some managed
+deployments expose that alias directly. `MYSQL_ROOT_PASSWORD` is checked next
+for compatibility with MySQL service defaults, and `MYSQL_PASSWORD` is a final
+fallback for generic setups.
 
 #### Initialize Database
 ```bash
@@ -208,7 +213,7 @@ Guest:        guest / guest123
 ### Issue: API calls return 401 Unauthorized
 **Solution**: 
 1. Verify MySQL database is running
-2. Check `MYSQL_PASSWORD` in `config.py`
+2. Check your MySQL environment variables (`MYSQLPASSWORD`/`MYSQL_ROOT_PASSWORD`, host, port, user, and database)
 3. Ensure session cookie is being sent with `credentials: "include"`
 
 ### Issue: CORS errors in browser console
