@@ -42,7 +42,19 @@ pip install flask flask-cors mysql-connector-python werkzeug
 ```
 
 #### Configure Database Connection
-Set MySQL credentials as environment variables (`MYSQLHOST`/`MYSQL_HOST`, `MYSQLPORT`/`MYSQL_PORT`, `MYSQLUSER`/`MYSQL_USER`, `MYSQLPASSWORD`/`MYSQL_ROOT_PASSWORD`, `MYSQLDATABASE`/`MYSQL_DATABASE`) before running the app.
+Set MySQL credentials as environment variables before running the app:
+- Host: set **either** `MYSQLHOST` **or** `MYSQL_HOST` (default: `localhost`)
+- Port: set **either** `MYSQLPORT` **or** `MYSQL_PORT` (default: `3306`)
+- User: set **either** `MYSQLUSER` **or** `MYSQL_USER` (default: `root`)
+- Password (**required**, precedence order): `MYSQLPASSWORD` → `MYSQL_ROOT_PASSWORD` → `MYSQL_PASSWORD`
+- Database: set **either** `MYSQLDATABASE` **or** `MYSQL_DATABASE` (default: `robotics_inventory`)
+
+Set Flask secret key as well (**required**): `FLASK_SECRET_KEY` (or `SECRET_KEY`).
+
+Note on password precedence: `MYSQLPASSWORD` is prioritized because some managed
+deployments expose that alias directly. `MYSQL_ROOT_PASSWORD` is checked next
+for compatibility with MySQL service defaults, and `MYSQL_PASSWORD` is a final
+fallback for generic setups.
 
 #### Initialize Database
 ```bash

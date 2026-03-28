@@ -14,24 +14,23 @@ import os
 import mysql.connector
 from werkzeug.security import generate_password_hash
 from datetime import date, timedelta
-
-
-def _env_first(*names, default=None, required=False):
-    for name in names:
-        value = os.getenv(name)
-        if value not in (None, ""):
-            return value
-    if required:
-        raise ValueError(f"Missing required environment variable. Set one of: {', '.join(names)}")
-    return default
-
+from env_utils import env_first
 
 # ── Connection settings (mirrors config.py) ──────────────────────────────────
-DB_HOST     = _env_first("MYSQLHOST", "MYSQL_HOST", default="localhost")
-DB_PORT     = int(_env_first("MYSQLPORT", "MYSQL_PORT", default="3306"))
-DB_USER     = _env_first("MYSQLUSER", "MYSQL_USER", default="root")
-DB_PASSWORD = _env_first("MYSQLPASSWORD", "MYSQL_ROOT_PASSWORD", "MYSQL_PASSWORD", required=True)
-DB_NAME     = _env_first("MYSQLDATABASE", "MYSQL_DATABASE", default="robotics_inventory")
+DB_HOST     = env_first("MYSQLHOST", "MYSQL_HOST", default="localhost")
+DB_PORT     = int(env_first("MYSQLPORT", "MYSQL_PORT", default="3306"))
+DB_USER     = env_first("MYSQLUSER", "MYSQL_USER", default="root")
+DB_PASSWORD = env_first(
+    "MYSQLPASSWORD",
+    "MYSQL_ROOT_PASSWORD",
+    "MYSQL_PASSWORD",
+    required=True,
+    required_message=(
+        "Missing MySQL password. Set MYSQLPASSWORD (preferred), MYSQL_ROOT_PASSWORD, "
+        "or MYSQL_PASSWORD before running init_db.py."
+    ),
+)
+DB_NAME     = env_first("MYSQLDATABASE", "MYSQL_DATABASE", default="robotics_inventory")
 
 
 def run(cursor, sql, params=None):
