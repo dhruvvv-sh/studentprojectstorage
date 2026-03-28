@@ -4,46 +4,196 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — Robotics Lab Inventory</title>
-
-  <!-- ✅ FIXED -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <!-- ✅ FIX ONLY IF js folder doesn’t exist -->
   <script src="js/api.js"></script>
   <script src="js/sidebar.js"></script>
+  <script>buildSidebar("dashboard");</script>
 
   <div class="app-wrapper">
-    <div style="width:230px"></div>
-
+    <div style="width:230px;flex-shrink:0"></div><!-- sidebar spacer -->
     <div class="main-content">
+
       <header class="page-header">
-        <h2>Dashboard</h2>
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle">Real-time lab overview</div>
+        </div>
+        <div class="header-actions">
+          <span id="clock" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)"></span>
+        </div>
       </header>
 
       <div class="page-body">
-        <div class="stats-grid">
 
-          <div class="stat-card">
+        <!-- ── Stat cards ─────────────────────────────── -->
+        <div class="stats-grid" id="stats-grid">
+          <!-- filled by JS -->
+          <div class="stat-card" style="--accent-clr:var(--cyan)">
+            <div class="stat-icon">📦</div>
             <div class="stat-value" id="s-items">—</div>
-            <div class="stat-label">Items</div>
+            <div class="stat-label">Total Item Types</div>
           </div>
-
-          <div class="stat-card">
+          <div class="stat-card" style="--accent-clr:var(--green)">
+            <div class="stat-icon">✅</div>
             <div class="stat-value" id="s-avail">—</div>
-            <div class="stat-label">Available</div>
+            <div class="stat-label">Units Available</div>
           </div>
-
-          <div class="stat-card">
+          <div class="stat-card" style="--accent-clr:var(--amber)">
+            <div class="stat-icon">🔧</div>
             <div class="stat-value" id="s-inuse">—</div>
-            <div class="stat-label">In Use</div>
+            <div class="stat-label">Units In Use</div>
+          </div>
+          <div class="stat-card" style="--accent-clr:var(--red)">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-value" id="s-overdue">—</div>
+            <div class="stat-label">Overdue Items</div>
+          </div>
+          <div class="stat-card" style="--accent-clr:var(--purple)">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-value" id="s-active">—</div>
+            <div class="stat-label">Active Issues</div>
+          </div>
+          <div class="stat-card" style="--accent-clr:var(--cyan)">
+            <div class="stat-icon">🗂️</div>
+            <div class="stat-value" id="s-cats">—</div>
+            <div class="stat-label">Categories</div>
+          </div>
+          <div class="stat-card" style="--accent-clr:var(--green)">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="s-teams">—</div>
+            <div class="stat-label">External Teams</div>
+          </div>
+          <div class="stat-card" style="--accent-clr:var(--amber)">
+            <div class="stat-icon">🚀</div>
+            <div class="stat-value" id="s-projects">—</div>
+            <div class="stat-label">Projects</div>
+          </div>
+        </div>
+
+        <!-- ── Category breakdown ─────────────────────── -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+
+          <div class="card">
+            <div class="section-title">Category Breakdown</div>
+            <div id="cat-stats"></div>
           </div>
 
+          <div class="card">
+            <div class="section-title">Quick Actions</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <a href="usage.html" class="btn btn-primary write-only">🔄 Issue an Item</a>
+              <a href="inventory.html" class="btn btn-ghost">📦 View Inventory</a>
+              <a href="reports.html" class="btn btn-ghost">📋 View Reports</a>
+              <a href="reports.html#overdue" class="btn btn-danger">⚠️ View Overdue Items</a>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
 
+        <!-- ── Recent Activity ────────────────────────── -->
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <span class="table-toolbar-title">Recent Activity</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Project / Team</th>
+                <th>Issue Date</th>
+                <th>Returned</th>
+              </tr>
+            </thead>
+            <tbody id="recent-tbody"></tbody>
+          </table>
+        </div>
+
+      </div><!-- /page-body -->
+    </div><!-- /main-content -->
+  </div><!-- /app-wrapper -->
+
+  <script>
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent =
+        now.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+    }
+    updateClock(); setInterval(updateClock, 10000);
+
+    // Init
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      await loadStats();
+      await loadCategoryStats();
+      await loadRecent();
+    })();
+
+    async function loadStats() {
+      try {
+        const s = await api.get("/dashboard/stats");
+        document.getElementById("s-items").textContent    = s.total_items;
+        document.getElementById("s-avail").textContent    = s.available_quantity;
+        document.getElementById("s-inuse").textContent    = s.in_use_quantity;
+        document.getElementById("s-overdue").textContent  = s.overdue_count;
+        document.getElementById("s-active").textContent   = s.active_issues;
+        document.getElementById("s-cats").textContent     = s.categories;
+        document.getElementById("s-teams").textContent    = s.teams;
+        document.getElementById("s-projects").textContent = s.projects;
+        if (s.overdue_count > 0) {
+          document.querySelector("#stats-grid .stat-card:nth-child(4)").classList.add("pulse");
+        }
+      } catch (e) { toast(e.message, "error"); }
+    }
+
+    async function loadCategoryStats() {
+      try {
+        const cats = await api.get("/dashboard/category-stats");
+        const el = document.getElementById("cat-stats");
+        if (!cats.length) { el.innerHTML = '<div class="empty-state">No categories yet</div>'; return; }
+        const max = Math.max(...cats.map(c => c.total_qty), 1);
+        el.innerHTML = cats.map(c => {
+          const pct = Math.round((c.available_qty / (c.total_qty || 1)) * 100);
+          const color = pct < 20 ? "var(--red)" : pct < 50 ? "var(--amber)" : "var(--green)";
+          return `
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                <span style="color:var(--text-hi)">${c.CategoryName}</span>
+                <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${c.available_qty}/${c.total_qty}</span>
+              </div>
+              <div class="qty-track" style="height:7px">
+                <div class="qty-fill" style="width:${Math.round((c.total_qty/max)*100)}%;background:var(--border-hi)"></div>
+              </div>
+              <div class="qty-track" style="height:3px;margin-top:2px">
+                <div class="qty-fill" style="width:${pct}%;background:${color}"></div>
+              </div>
+            </div>`;
+        }).join("");
+      } catch (e) { console.error(e); }
+    }
+
+    async function loadRecent() {
+      try {
+        const rows = await api.get("/dashboard/recent");
+        const tb   = document.getElementById("recent-tbody");
+        if (!rows.length) { tb.innerHTML = noDataRow(7, "No activity yet"); return; }
+        tb.innerHTML = rows.map(r => `
+          <tr>
+            <td class="td-mono">#${r.UsageID}</td>
+            <td class="td-name">${r.ItemName}</td>
+            <td class="td-mono">${r.Quantity}</td>
+            <td>${statusBadge(r.StatusName)}</td>
+            <td style="font-size:11px;color:var(--text-muted)">${r.ProjectName || r.TeamName || "—"}</td>
+            <td class="td-mono">${fmtDate(r.IssueDate)}</td>
+            <td class="td-mono">${r.ReturnDate ? fmtDate(r.ReturnDate) : '<span style="color:var(--amber)">Pending</span>'}</td>
+          </tr>`).join("");
+      } catch (e) { toast(e.message, "error"); }
+    }
+  </script>
 </body>
 </html>
