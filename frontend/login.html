@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Robotics Lab Inventory</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="logo-big">⚙️</div>
+        <h1>Robotics Lab</h1>
+        <p>Inventory & Usage Management System</p>
+      </div>
+
+      <div class="login-error" id="login-error"></div>
+
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" class="form-control" id="username">
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" class="form-control" id="password">
+      </div>
+
+      <button class="btn-login" onclick="doLogin()">ACCESS SYSTEM</button>
+    </div>
+  </div>
+
+  <script>
+    async function doLogin() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (res.ok) {
+        window.location.href = "dashboard.html";
+      } else {
+        document.getElementById("login-error").textContent = "Login failed";
+        document.getElementById("login-error").style.display = "block";
+      }
+    }
+  </script>
+</body>
+</html>

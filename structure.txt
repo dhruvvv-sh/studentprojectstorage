@@ -1,0 +1,27 @@
+robotics_inventory/
+├── backend/
+
+
+│   ├── app.py              # Main Flask app
+│   ├── config.py           # DB config
+│   ├── models/
+│   │   └── db.py           # DB connection
+│   ├── routes/
+│   │   ├── auth.py         # Login/logout
+│   │   ├── items.py        # Item CRUD
+│   │   ├── usage.py        # Usage records
+│   │   └── dashboard.py    # Dashboard data
+│   └── requirements.txt
+├── frontend/
+│   ├── index.html          # Login page
+│   ├── dashboard.html      # Main dashboard
+│   ├── items.html          # Item management
+│   ├── css/
+│   │   └── style.css       # Dark theme styles
+│   ├── js/
+│   │   ├── auth.js         # Auth logic
+│   │   ├── items.js        # Item operations
+│   │   └── utils.js        # Helper functions
+│   └── assets/             # Images, icons
+└── database/
+    └── schema.sql          # DB schema with sample data
